@@ -3,7 +3,7 @@
 import random
 import sys
 
-benefit = 1.05 # how much does it help to waste 30 seconds of everyone else's time?  
+benefit = 0.05 # how much does it help to waste 30 seconds of everyone else's time?  
 
 # print the number of selfish blocks won, and total blocks
 def simulate(alpha, gamma, n): 
@@ -12,17 +12,28 @@ def simulate(alpha, gamma, n):
     chainLen = 0 # length of public chain
     wins = 0 # how many times the selfish miners won
 
+    lengthTwoChainExists = False
+
     while chainLen < n:
         r = random.random()
         if state == 0: #initial state
+            lengthTwoChainExists = False
             if r <= alpha:
                 stash += 1
                 assert stash == 1
                 state = 1
+                # If we find a block, immediately publish a header and waste 30 seconds of other people's time
+                # We need to figure out if someome else finds a block on our header in those 30 seconds
+                r2 = random.random()
+                if r2 < (1 - alpha) * benefit: 
+                    lengthTwoChainExists = True
             else:
                 chainLen += 1
         elif state == -1: # 0' in the paper.. we had one hidden block but a public block was just published
-            if r <= alpha: # we found a block, publish it immediately
+            # We start by publishing our one block.. now we work hard to extend it..
+            if lengthTwoChainExists:
+                wins += 1 # Someone had a block built on our block in waiting.. 
+            elif r <= alpha: # we found a block, publish it immediately
                 wins += 2
             elif r <= alpha + gamma * (1 - alpha): #        they found a block on our block
                 wins += 1
@@ -31,7 +42,7 @@ def simulate(alpha, gamma, n):
             stash = 0
             chainLen += 2                   
         elif state == 1:
-            if r <= (alpha * benefit):
+            if r <= alpha * (1 + benefit):
                 state = 2
                 stash += 1
                 assert stash == 2
@@ -43,7 +54,13 @@ def simulate(alpha, gamma, n):
                 stash += 1
             else: # publish both ASAP.... 
                 state = 0
-                wins += stash
+                if stash == 2 and lengthTwoChainExists: #See if the other miner wins the race
+                    if random.random() <= gamma:
+                        wins += 2 # We win the race
+                    else:
+                        wins += 1 # Other miner built on our block, but he wins
+                else:
+                    wins += stash
                 chainLen += stash
                 stash = 0
         else: # state is >= 3
@@ -62,7 +79,7 @@ def simulate(alpha, gamma, n):
 def main():
     alpha = float(sys.argv[1]) # our fraction of total hash rate
     gamma = float(sys.argv[2]) # % of races we win
-    nBlocks = 10**int(sys.argv[3]) # number of blocks to simulate expressed as power of 10
+    nBlocks = 10**float(sys.argv[3]) # number of blocks to simulate expressed as power of 10
     simulate(alpha, gamma, nBlocks)
 
 
