@@ -10,6 +10,10 @@ import math
 
 # compute whether it's worth it to be an AMM, assuming a geometric random walk in price and no drift
 
+
+
+# Run one simulation beginning with myFunds money, an ETH price, an AMM fee, and a number of random price movement steps
+ 
 def runSim(myFunds, price, fee, steps):
 	
 		
@@ -18,20 +22,20 @@ def runSim(myFunds, price, fee, steps):
 
 	initialPrice = price
 
-#	print "numETH is " + str(numETH)
-#	print "numUSDC is " + str(numUSDC)
+	#print "numETH is " + str(numETH)
+	#print "numUSDC is " + str(numUSDC)
 	#print "price is " + str(price)
 
-	k = numETH * numUSDC
-	totalfees = 0
+	k = numETH * numUSDC # k is the constant for the AMM
+	totalfees = 0 # total amount of fees collected over all the steps
 	i = 1
 
 	upsteps = 0
 	downsteps = 0
 
 	while i <= steps:
-		if random.random() < 0.5:
-			downsteps = downsteps + 1 # sent in ETH, got out USDC
+		if random.random() < 0.5: # price decrease
+			downsteps = downsteps + 1 
 			newprice = price * (1-fee)
 			newUSDC = math.sqrt(newprice*k)
 			newETH = k / newUSDC
@@ -40,7 +44,7 @@ def runSim(myFunds, price, fee, steps):
 			
 			
 			
-		else:
+		else: # price increase
 			upsteps = upsteps + 1 # sent in USDC, got out ETH
 			newprice = price * (1+fee)
 			newUSDC = math.sqrt(newprice*k)
@@ -76,6 +80,7 @@ def runSim(myFunds, price, fee, steps):
 		
 	print ""
 		
+	#return a bucketized and scaled down pair of (impermanent loss plus fees, total assets)	
 	return [int((totalfees - loss)/1000), int((endValue + totalfees)/1000)]
 
 
@@ -92,10 +97,12 @@ outersteps = float(sys.argv[5])
 
 j = 0
 
+#create a histogram of the impermanent loss, bucketed into thousands of dollars
 OFFSET = 20000
 histogram = []
 histogram = [0 for i in range(OFFSET + OFFSET)]
 
+#create a histogram of the total asset value including fees, bucketed into thousands of dollars
 abshistogram = []
 abshistogram = [0 for i in range(OFFSET + OFFSET)]
 
