@@ -8,6 +8,8 @@ import datetime
 import numpy
 import math
 
+# compute whether it's worth it to be an AMM, assuming a geometric random walk in price and no drift
+
 def runSim(myFunds, price, fee, steps):
 	
 		
