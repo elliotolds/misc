@@ -14,13 +14,15 @@ import math
 
 # Run one simulation beginning with myFunds money, an ETH price, an AMM fee, and a number of random price movement steps
  
-def runSim(myFunds, price, fee, steps):
+def runSim(myFunds, price, fee, steps, stepsize):
 	
 		
 	numETH = (myFunds/2)/price
 	numUSDC = (myFunds/2)
 
 	initialPrice = price
+	marketPrice = price
+	ammPrice = price
 
 	#print "numETH is " + str(numETH)
 	#print "numUSDC is " + str(numUSDC)
@@ -36,69 +38,86 @@ def runSim(myFunds, price, fee, steps):
 	while i <= steps:
 		if random.random() < 0.5: # price decrease
 			downsteps = downsteps + 1 
-			newprice = price * (1-fee)
-			newUSDC = math.sqrt(newprice*k)
-			newETH = k / newUSDC
-			#midprice = (price + newprice) / 2
-			totalfees = totalfees + (newETH - numETH) * newprice * fee #sell the fee ETH immediately for the new price
-			
-			
+			marketPrice = marketPrice * (1-stepsize)
+			#print "DOWN.. market price is " + str(marketPrice) + " .. amm price is: " + str(ammPrice)
+			if marketPrice < ammPrice / (1+fee):
+				#arbitrage opportunity.. buy ETH on the market and sell to the AMM until ammPrice / (1+fee) equals market price
+				#print "arbitrage!"
+				ammPrice = marketPrice * (1+fee)
+				#print "new amm price: " + str(ammPrice)
+				newUSDC = math.sqrt(ammPrice*k)
+				newETH = k / newUSDC
+				#print "USDC: " + str(numUSDC) + " --> " + str(newUSDC)
+				#print "ETH: " + str(numETH) + " --> " + str(newETH)
+				#print "extra fees: " + str((newETH - numETH) * marketPrice * fee)
+				totalfees = totalfees + (newETH - numETH) * marketPrice * fee #sell the fee ETH on the market immediately for the new price	
+				numETH = newETH
+				numUSDC = newUSDC		
 			
 		else: # price increase
 			upsteps = upsteps + 1 # sent in USDC, got out ETH
-			newprice = price * (1+fee)
-			newUSDC = math.sqrt(newprice*k)
-			newETH = k / newUSDC
-			totalfees = totalfees + (newUSDC - numUSDC) * fee 
-
-		price = newprice
-		numETH = newETH
-		numUSDC = newUSDC
+			marketPrice = marketPrice * (1+stepsize)
+			#print "UP... market price is " + str(marketPrice) + " .. amm price is: " + str(ammPrice)
+			if marketPrice > ammPrice * (1+fee):
+				#arbitrage opportunity.. buy ETH from the AMM and sell to the market until ammPrice * (1+fee) equals market price
+				#print "arbitrage!"
+				ammPrice = marketPrice / (1+fee)
+				#print "new amm price: " + str(ammPrice)
+				newUSDC = math.sqrt(ammPrice*k)
+				newETH = k / newUSDC
+				#print "USDC: " + str(numUSDC) + " --> " + str(newUSDC)
+				#print "ETH: " + str(numETH) + " --> " + str(newETH)
+				#print "extra fees: " + str((newUSDC - numUSDC) * fee)
+				totalfees = totalfees + (newUSDC - numUSDC) * fee 
+				numETH = newETH
+				numUSDC = newUSDC		
 
 		i=i+1
 			
 			
-	endValue = numUSDC + price*numETH
-	hodlValue = (myFunds/initialPrice) * price
-	fiftyValue = price * (myFunds/2)/initialPrice + (myFunds/2)
+	endValue = numUSDC + marketPrice*numETH
+	hodlValue = (myFunds/initialPrice) * marketPrice
+	fiftyValue = marketPrice * (myFunds/2)/initialPrice + (myFunds/2)
 	loss = fiftyValue - endValue
 
-	print "Upsteps: " + str(upsteps)
-	print "Downsteps: " + str(downsteps)		
-	print "Ending price is " + str(price)
-	print "Ending AMM value is " + str(endValue)
+	#print "Upsteps: " + str(upsteps)
+	#print "Downsteps: " + str(downsteps)		
+	#print "Ending marketprice is " + str(marketPrice)
+	#print "Ending ammPrice is " + str(ammPrice)
+	#print "Ending AMM value is " + str(endValue)
 #	print "If AMM had just held ETH, value would be " + str(hodlValue)
 #	print "If AMM had just held USDC, value would be " + str(myFunds)
-	print "If AMM had just done 50/50, value would be " + str(fiftyValue)
-	print "Impermanent loss was " + str(loss)
-	print "Total fees is " + str(totalfees)
+	#print "If AMM had just done 50/50, value would be " + str(fiftyValue)
+	#print "Impermanent loss was " + str(loss)
+	#print "Total fees is " + str(totalfees)
 
-	if totalfees > loss:
-		print "WORTH IT"
-	else:
-		print "REKT"
+	#if totalfees > loss:
+	#	print "WORTH IT"
+	#else:
+	#	print "REKT"
 		
-	print ""
+	#print ""
 		
 	#return a bucketized and scaled down pair of (impermanent loss plus fees, total assets)	
 	return [int((totalfees - loss)/1000), int((endValue + totalfees)/1000)]
 
 
 
-if len(sys.argv) != 6:
-  print "Needs 5 args: myContribution, current price, fee, steps, outersteps"
+if len(sys.argv) != 7:
+  print "Needs 6 args: myContribution, current price, fee, steps, stepsize, outersteps"
   exit()
   
 myFunds = float(sys.argv[1])
 price = float(sys.argv[2])
 fee = float(sys.argv[3])
 steps = float(sys.argv[4])
-outersteps = float(sys.argv[5])
+stepsize = float(sys.argv[5])
+outersteps = float(sys.argv[6])
 
 j = 0
 
 #create a histogram of the impermanent loss, bucketed into thousands of dollars
-OFFSET = 20000
+OFFSET = 1000000
 histogram = []
 histogram = [0 for i in range(OFFSET + OFFSET)]
 
@@ -107,9 +126,9 @@ abshistogram = []
 abshistogram = [0 for i in range(OFFSET + OFFSET)]
 
 while j < outersteps:
-	vals = runSim(myFunds, price, fee, steps)
+	vals = runSim(myFunds, price, fee, steps, stepsize)
 	val = vals[0]
-	print "step " + str(j) + ".. trying to write hisogram value to " + str(val + OFFSET)
+	print "outer step " + str(j) + ".. trying to write hisogram value to " + str(val + OFFSET)
 	histogram[val + OFFSET] = histogram[val + OFFSET] + 1	
 	absval = vals[1]
 	abshistogram[absval] = abshistogram[absval] + 1 
@@ -123,7 +142,7 @@ while j < OFFSET + OFFSET:
 		print str(j - OFFSET) + " --> " + str(histogram[j])
 		totalgain = totalgain + (j - OFFSET) * histogram[j]
 		if j - OFFSET < 0:
-			lostmoney = lostmoney + 1
+			lostmoney = lostmoney + histogram[j]
 	j = j + 1	
 	
 print ""
@@ -137,7 +156,7 @@ while j < OFFSET + OFFSET:
 		print str(j) + " --> " + str(abshistogram[j])
 		totalabscash = totalabscash + j * abshistogram[j]
 		if  j < myFunds/1000:
-			lostabsmoney = lostabsmoney + 1
+			lostabsmoney = lostabsmoney + abshistogram[j]
 	j = j + 1	
 
 print "Average IL gain is " + str(totalgain/outersteps)
