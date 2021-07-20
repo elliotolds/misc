@@ -10,23 +10,16 @@ import math
 
 # compute whether it's worth it to be an AMM, assuming a geometric random walk in price and no drift
 
-
-
 # Run one simulation beginning with myFunds money, an ETH price, an AMM fee, and a number of random price movement steps
  
 def runSim(myFunds, price, fee, steps, stepsize):
-	
-		
+			
 	numETH = (myFunds/2)/price
 	numUSDC = (myFunds/2)
 
 	initialPrice = price
 	marketPrice = price
 	ammPrice = price
-
-	#print "numETH is " + str(numETH)
-	#print "numUSDC is " + str(numUSDC)
-	#print "price is " + str(price)
 
 	k = numETH * numUSDC # k is the constant for the AMM
 	totalfees = 0 # total amount of fees collected over all the steps
@@ -39,17 +32,11 @@ def runSim(myFunds, price, fee, steps, stepsize):
 		if random.random() < 0.5: # price decrease
 			downsteps = downsteps + 1 
 			marketPrice = marketPrice * (1-stepsize)
-			#print "DOWN.. market price is " + str(marketPrice) + " .. amm price is: " + str(ammPrice)
 			if marketPrice < ammPrice / (1+fee):
 				#arbitrage opportunity.. buy ETH on the market and sell to the AMM until ammPrice / (1+fee) equals market price
-				#print "arbitrage!"
 				ammPrice = marketPrice * (1+fee)
-				#print "new amm price: " + str(ammPrice)
 				newUSDC = math.sqrt(ammPrice*k)
 				newETH = k / newUSDC
-				#print "USDC: " + str(numUSDC) + " --> " + str(newUSDC)
-				#print "ETH: " + str(numETH) + " --> " + str(newETH)
-				#print "extra fees: " + str((newETH - numETH) * marketPrice * fee)
 				totalfees = totalfees + (newETH - numETH) * marketPrice * fee #sell the fee ETH on the market immediately for the new price	
 				numETH = newETH
 				numUSDC = newUSDC		
@@ -57,17 +44,11 @@ def runSim(myFunds, price, fee, steps, stepsize):
 		else: # price increase
 			upsteps = upsteps + 1 # sent in USDC, got out ETH
 			marketPrice = marketPrice * (1+stepsize)
-			#print "UP... market price is " + str(marketPrice) + " .. amm price is: " + str(ammPrice)
 			if marketPrice > ammPrice * (1+fee):
 				#arbitrage opportunity.. buy ETH from the AMM and sell to the market until ammPrice * (1+fee) equals market price
-				#print "arbitrage!"
 				ammPrice = marketPrice / (1+fee)
-				#print "new amm price: " + str(ammPrice)
 				newUSDC = math.sqrt(ammPrice*k)
 				newETH = k / newUSDC
-				#print "USDC: " + str(numUSDC) + " --> " + str(newUSDC)
-				#print "ETH: " + str(numETH) + " --> " + str(newETH)
-				#print "extra fees: " + str((newUSDC - numUSDC) * fee)
 				totalfees = totalfees + (newUSDC - numUSDC) * fee 
 				numETH = newETH
 				numUSDC = newUSDC		
